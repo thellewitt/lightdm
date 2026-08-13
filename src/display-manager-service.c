@@ -34,6 +34,9 @@ typedef struct
     /* Handle for display manager D-Bus object */
     guint reg_id;
 
+    /* TRUE while registering existing seats during startup */
+    gboolean initializing;
+
     /* D-Bus interface information */
     GDBusNodeInfo *seat_info;
     GDBusNodeInfo *session_info;
@@ -501,8 +504,19 @@ seat_added_cb (DisplayManager *display_manager, Seat *seat, DisplayManagerServic
     if (entry->bus_id == 0)
         g_warning ("Failed to register seat: %s", error->message);
 
-    emit_object_value_changed (priv->bus, "/org/freedesktop/DisplayManager", "org.freedesktop.DisplayManager", "Seats", get_seat_list (service));
-    emit_object_signal (priv->bus, "/org/freedesktop/DisplayManager", "SeatAdded", entry->path);
+    if (!priv->initializing)
+    {
+        emit_object_value_changed (priv->bus,
+                                   "/org/freedesktop/DisplayManager",
+                                   "org.freedesktop.DisplayManager",
+                                   "Seats",
+                                   get_seat_list (service));
+
+        emit_object_signal (priv->bus,
+                            "/org/freedesktop/DisplayManager",
+                            "SeatAdded",
+                            entry->path);
+    }
 
     g_signal_connect (seat, SEAT_SIGNAL_RUNNING_USER_SESSION, G_CALLBACK (running_user_session_cb), service);
     g_signal_connect (seat, SEAT_SIGNAL_SESSION_REMOVED, G_CALLBACK (session_removed_cb), service);
@@ -624,8 +638,13 @@ bus_acquired_cb (GDBusConnection *connection,
     /* Add objects for existing seats and listen to new ones */
     g_signal_connect (priv->manager, DISPLAY_MANAGER_SIGNAL_SEAT_ADDED, G_CALLBACK (seat_added_cb), service);
     g_signal_connect (priv->manager, DISPLAY_MANAGER_SIGNAL_SEAT_REMOVED, G_CALLBACK (seat_removed_cb), service);
+
+    priv->initializing = TRUE;
+
     for (GList *link = display_manager_get_seats (priv->manager); link; link = link->next)
         seat_added_cb (priv->manager, (Seat *) link->data, service);
+
+    priv->initializing = FALSE;
 
     g_signal_emit (service, signals[READY], 0);
 }
@@ -653,14 +672,56 @@ display_manager_service_start (DisplayManagerService *service)
     g_return_if_fail (service != NULL);
 
     g_debug ("Using D-Bus name %s", LIGHTDM_BUS_NAME);
-    priv->bus_id = g_bus_own_name (getuid () == 0 ? G_BUS_TYPE_SYSTEM : G_BUS_TYPE_SESSION,
-                                   LIGHTDM_BUS_NAME,
-                                   G_BUS_NAME_OWNER_FLAGS_NONE,
-                                   bus_acquired_cb,
-                                   NULL,
-                                   name_lost_cb,
-                                   service,
-                                   NULL);
+
+    if (g_getenv ("LIGHTDM_TEST_ROOT"))
+    {
+        const gchar *address = g_getenv ("DBUS_SYSTEM_BUS_ADDRESS");
+        g_autoptr(GError) error = NULL;
+        g_autoptr(GDBusConnection) connection = NULL;
+
+        if (!address)
+        {
+            g_warning ("No test system bus address available");
+            g_signal_emit (service, signals[NAME_LOST], 0);
+            return;
+        }
+
+        connection = g_dbus_connection_new_for_address_sync (
+            address,
+            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
+            G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
+            NULL,
+            NULL,
+            &error);
+
+        if (!connection)
+        {
+            g_warning ("Failed to connect to test system bus: %s", error->message);
+            g_signal_emit (service, signals[NAME_LOST], 0);
+            return;
+        }
+
+        priv->bus_id = g_bus_own_name_on_connection (
+            connection,
+            LIGHTDM_BUS_NAME,
+            G_BUS_NAME_OWNER_FLAGS_NONE,
+            bus_acquired_cb,
+            name_lost_cb,
+            service,
+            NULL);
+    }
+    else
+    {
+        priv->bus_id = g_bus_own_name (
+            getuid () == 0 ? G_BUS_TYPE_SYSTEM : G_BUS_TYPE_SESSION,
+            LIGHTDM_BUS_NAME,
+            G_BUS_NAME_OWNER_FLAGS_NONE,
+            bus_acquired_cb,
+            NULL,
+            name_lost_cb,
+            service,
+            NULL);
+    }
 }
 
 static void

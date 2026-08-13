@@ -83,7 +83,7 @@ void SessionsModelPrivate::loadSessions(SessionsModel::SessionType sessionType)
 }
 
 
-//deprecated constructor for ABI compatibility.
+//deprecated constructor for ABI compatability.
 SessionsModel::SessionsModel(QObject *parent) :
     QAbstractListModel(parent),
     d_ptr(new SessionsModelPrivate(this))

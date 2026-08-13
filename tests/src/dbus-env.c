@@ -54,11 +54,17 @@ main (int argc, char **argv)
     GPid system_bus_pid;
     g_autofree gchar *system_bus_address = create_bus (system_conf_file, &system_bus_pid);
     g_setenv ("DBUS_SYSTEM_BUS_ADDRESS", system_bus_address, TRUE);
+    g_print ("SYSTEM BUS: %s\n", system_bus_address);
+    g_print ("SYSTEM BUS PID: %d\n", system_bus_pid);
+    g_print ("SYSTEM BUS SOCKETS:\n");
+    system ("ls -la /tmp/dbus-* 2>&1");
 
     g_autofree gchar *session_conf_file = g_build_filename (DATADIR, "session.conf", NULL);
     GPid session_bus_pid;
     g_autofree gchar *session_bus_address = create_bus (session_conf_file, &session_bus_pid);
     g_setenv ("DBUS_SESSION_BUS_ADDRESS", session_bus_address, TRUE);
+    g_print ("SESSION BUS: %s\n", session_bus_address);
+    g_print ("SESSION BUS PID: %d\n", session_bus_pid);
 
     GPid child_pid = fork ();
     if (child_pid == 0)

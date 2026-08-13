@@ -69,6 +69,9 @@ typedef struct
 
     /* TRUE if seat has TTYs */
     gboolean can_tty;
+
+    /* TRUE if can do session switching */
+    gboolean can_multi_session;
 } Login1SeatPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (Login1Service, login1_service, G_TYPE_OBJECT)
@@ -199,8 +202,12 @@ add_seat (Login1Service *service, const gchar *id, const gchar *path)
         {
             if (strcmp (name, "CanGraphical") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_BOOLEAN))
                 s_priv->can_graphical = g_variant_get_boolean (value);
+
             else if (strcmp (name, "CanTTY") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_BOOLEAN))
                 s_priv->can_tty = g_variant_get_boolean (value);
+
+            else if (strcmp (name, "CanMultiSession") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_BOOLEAN))
+                s_priv->can_multi_session = g_variant_get_boolean (value);
         }
     }
 
@@ -270,7 +277,14 @@ login1_service_connect (Login1Service *service)
         return TRUE;
 
     g_autoptr(GError) error = NULL;
-    priv->connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, &error);
+    g_print ("LOGIN1 BUS: %s\n", g_getenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+    priv->connection = g_dbus_connection_new_for_address_sync (
+    g_getenv ("DBUS_SYSTEM_BUS_ADDRESS"),
+    G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
+    G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
+    NULL,
+    NULL,
+    &error);
     if (error)
         g_warning ("Failed to get system bus: %s", error->message);
     if (!priv->connection)
@@ -539,6 +553,12 @@ login1_seat_get_can_tty (Login1Seat *seat)
     Login1SeatPrivate *priv = login1_seat_get_instance_private (seat);
     g_return_val_if_fail (seat != NULL, FALSE);
     return priv->can_tty;
+
+login1_seat_get_can_multi_session (Login1Seat *seat)
+{
+    Login1SeatPrivate *priv = login1_seat_get_instance_private (seat);
+    g_return_val_if_fail (seat != NULL, FALSE);
+    return priv->can_multi_session;
 }
 
 static void

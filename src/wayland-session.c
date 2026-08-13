@@ -65,10 +65,6 @@ wayland_session_connect_session (DisplayServer *display_server, Session *session
     {
         g_autofree gchar *value = g_strdup_printf ("%d", priv->vt);
         session_set_env (session, "XDG_VTNR", value);
-        
-        g_autofree gchar *tty_text = NULL;
-        tty_text = g_strdup_printf("/dev/tty/%d",priv->vt);
-        session_set_tty(session,tty_text);
     }
 }
 
@@ -82,8 +78,6 @@ wayland_session_disconnect_session (DisplayServer *display_server, Session *sess
 static void
 wayland_session_init (WaylandSession *session)
 {
-    WaylandSessionPrivate *priv = wayland_session_get_instance_private (session);
-    priv->vt = -1;
 }
 
 static void
