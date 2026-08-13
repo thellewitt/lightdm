@@ -16,9 +16,6 @@
 #include <utmp.h>
 #include <utmpx.h>
 #include <sys/mman.h>
-#if HAVE_SETUSERCONTEXT
-#include <login_cap.h>
-#endif
 
 #if HAVE_LIBAUDIT
 #include <libaudit.h>
@@ -398,14 +395,10 @@ session_child_run (int argc, char **argv)
         {
             /* Set POSIX variables */
             pam_putenv (pam_handle, "PATH=/usr/local/bin:/usr/bin:/bin");
-            g_autofree gchar* user_env = g_strdup_printf ("USER=%s", username);
-            pam_putenv (pam_handle, user_env);
-            g_autofree gchar* logname_env = g_strdup_printf ("LOGNAME=%s", username);
-            pam_putenv (pam_handle, logname_env);
-            g_autofree gchar* home_env = g_strdup_printf ("HOME=%s",user_get_home_directory (user));
-            pam_putenv (pam_handle, home_env);
-            g_autofree gchar* shell_env = g_strdup_printf ("SHELL=%s", user_get_shell (user));
-            pam_putenv (pam_handle, shell_env);
+            pam_putenv (pam_handle, g_strdup_printf ("USER=%s", username));
+            pam_putenv (pam_handle, g_strdup_printf ("LOGNAME=%s", username));
+            pam_putenv (pam_handle, g_strdup_printf ("HOME=%s", user_get_home_directory (user)));
+            pam_putenv (pam_handle, g_strdup_printf ("SHELL=%s", user_get_shell (user)));
 
             /* Let the greeter and user session inherit the system default locale */
             static const gchar * const locale_var_names[] = {
@@ -545,14 +538,6 @@ session_child_run (int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    /* try to get HOME from PAM since it might have been changed */
-    const gchar *home_directory = pam_getenv (pam_handle, "HOME");
-    if (!home_directory) {
-        home_directory = user_get_home_directory (user);
-    }
-    if (version >= 4)
-        write_string (home_directory);
-
     /* Open a connection to the system bus for ConsoleKit - we must keep it open or CK will close the session */
     g_autoptr(GError) error = NULL;
     g_autoptr(GDBusConnection) bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, &error);
@@ -617,11 +602,6 @@ session_child_run (int argc, char **argv)
     /* Write X authority */
     if (x_authority)
     {
-        if (!g_path_is_absolute (x_authority_filename)) {
-            gchar *x_authority_filename_new = g_build_filename (home_directory, x_authority_filename, NULL);
-            g_free (x_authority_filename);
-            x_authority_filename = x_authority_filename_new;
-        }
         gboolean drop_privileges = geteuid () == 0;
         if (drop_privileges)
             privileges_drop (user_get_uid (user), user_get_gid (user));
@@ -649,6 +629,7 @@ session_child_run (int argc, char **argv)
     /* Run the command as the authenticated user */
     uid_t uid = user_get_uid (user);
     gid_t gid = user_get_gid (user);
+    const gchar *home_directory = user_get_home_directory (user);
     child_pid = fork ();
     if (child_pid == 0)
     {
@@ -656,29 +637,6 @@ session_child_run (int argc, char **argv)
         if (setsid () < 0)
             _exit (errno);
 
-#if HAVE_SETUSERCONTEXT
-        /* Setup user context
-        * Reset the current environment to what is in the PAM context,
-        * then setusercontext will add to it as necessary as there is no
-        * option for setusercontext to add to a PAM context.
-        */
-        extern char **environ;
-        environ = pam_getenvlist (pam_handle);
-        struct passwd* pwd = getpwnam (username);
-        if (pwd) {
-            if (setusercontext (NULL, pwd, pwd->pw_uid, LOGIN_SETALL) < 0) {
-                int _errno = errno;
-                fprintf(stderr, "setusercontext for \"%s\" (%d) failed: %s\n",
-                    username, user_get_uid (user), strerror (errno));
-                _exit (_errno);
-            }
-            endpwent();
-        } else {
-            fprintf (stderr, "getpwname for \"%s\" failed: %s\n",
-                username, strerror (errno));
-            _exit (ENOENT);
-        }
-#else
         /* Change to this user */
         if (getuid () == 0)
         {
@@ -688,15 +646,13 @@ session_child_run (int argc, char **argv)
             if (setuid (uid) != 0)
                 _exit (errno);
         }
-#endif
+
         /* Change working directory */
         /* NOTE: This must be done after the permissions are changed because NFS filesystems can
          * be setup so the local root user accesses the NFS files as 'nobody'.  If the home directories
          * are not system readable then the chdir can fail */
-        if (chdir (home_directory) != 0) {
-            g_printerr ("chdir: %s\n", strerror (errno));
+        if (chdir (home_directory) != 0)
             _exit (errno);
-        }
 
         if (log_filename)
         {
@@ -712,13 +668,7 @@ session_child_run (int argc, char **argv)
         signal (SIGPIPE, SIG_DFL);
 
         /* Run the command */
-        execve (command_argv[0], command_argv,
-#if HAVE_SETUSERCONTEXT
-            environ
-#else
-            pam_getenvlist (pam_handle)
-#endif
-        );
+        execve (command_argv[0], command_argv, pam_getenvlist (pam_handle));
         _exit (EXIT_FAILURE);
     }
 

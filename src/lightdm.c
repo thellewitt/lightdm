@@ -425,12 +425,12 @@ add_login1_seat (Login1Seat *login1_seat)
     {
         set_seat_properties (seat, seat_name);
 
-        gboolean can_multi_session = login1_seat_get_can_multi_session (login1_seat);
-        gboolean can_tty = login1_seat_get_can_tty (login1_seat);
-        if (!can_multi_session)
+        if (!login1_seat_get_can_multi_session (login1_seat))
+        {
             g_debug ("Seat %s has property CanMultiSession=no", seat_name);
-        seat_set_supports_multi_session (seat, can_multi_session);
-        seat_set_can_tty (seat, can_tty);
+            /* XXX: uncomment this line after bug #1371250 is closed.
+            seat_set_property (seat, "allow-user-switching", "false"); */
+        }
 
         if (is_seat0)
             seat_set_property (seat, "exit-on-failure", "true");
@@ -789,6 +789,8 @@ main (int argc, char **argv)
         config_set_string (config_get_instance (), "Seat:*", "xmir-command", "Xmir");
     if (!config_has_key (config_get_instance (), "Seat:*", "xserver-share"))
         config_set_boolean (config_get_instance (), "Seat:*", "xserver-share", TRUE);
+    if (!config_has_key (config_get_instance (), "Seat:*", "wayland-compositor-command"))
+        config_set_string (config_get_instance (), "Seat:*", "wayland-compositor-command", "wayland-system-compositor");
     if (!config_has_key (config_get_instance (), "Seat:*", "start-session"))
         config_set_boolean (config_get_instance (), "Seat:*", "start-session", TRUE);
     if (!config_has_key (config_get_instance (), "Seat:*", "allow-user-switching"))
@@ -920,9 +922,6 @@ main (int argc, char **argv)
             {
                 set_seat_properties (seat, NULL);
                 seat_set_property (seat, "exit-on-failure", "true");
-
-                /* in the absence of login1 we find out this using our own heuristics */
-                seat_set_can_tty (seat, vt_can_multi_seat ());
 
                 if (!display_manager_add_seat (display_manager, seat))
                     return EXIT_FAILURE;

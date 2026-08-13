@@ -12,6 +12,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/syscall.h>
 #include <netinet/in.h>
 #include <pwd.h>
 #include <unistd.h>

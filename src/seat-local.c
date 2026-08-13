@@ -29,6 +29,14 @@ G_DEFINE_TYPE_WITH_PRIVATE (SeatLocal, seat_local, SEAT_TYPE)
 static XServerLocal *create_x_server (SeatLocal *seat);
 
 static void
+seat_local_setup (Seat *seat)
+{
+    seat_set_supports_multi_session (seat, TRUE);
+    seat_set_share_display_server (seat, seat_get_boolean_property (seat, "xserver-share"));
+    SEAT_CLASS (seat_local_parent_class)->setup (seat);
+}
+
+static void
 check_stopped (SeatLocal *seat)
 {
     SeatLocalPrivate *priv = seat_local_get_instance_private (seat);
@@ -56,8 +64,6 @@ xdmcp_x_server_stopped_cb (DisplayServer *display_server, SeatLocal *seat)
 static gboolean
 seat_local_start (Seat *seat)
 {
-    seat_set_share_display_server (seat, seat_get_boolean_property (seat, "xserver-share"));
-
     SeatLocalPrivate *priv = seat_local_get_instance_private (SEAT_LOCAL (seat));
 
     /* If running as an XDMCP client then just start an X server */
@@ -120,7 +126,7 @@ display_server_transition_plymouth_cb (DisplayServer *display_server, Seat *seat
 static gint
 get_vt (SeatLocal *seat, DisplayServer *display_server)
 {
-    if (strcmp (seat_get_name (SEAT (seat)), "seat0") != 0 || !seat_get_can_tty ( SEAT (seat)))
+    if (strcmp (seat_get_name (SEAT (seat)), "seat0") != 0)
         return -1;
 
     /* If Plymouth is running, stop it */
@@ -169,7 +175,9 @@ create_x_server (SeatLocal *seat)
     if (command)
         x_server_local_set_command (x_server, command);
 
-    x_server_set_local_authority (X_SERVER (x_server));
+    g_autofree gchar *number = g_strdup_printf ("%d", x_server_get_display_number (X_SERVER (x_server)));
+    g_autoptr(XAuthority) cookie = x_authority_new_local_cookie (number);
+    x_server_set_authority (X_SERVER (x_server), cookie);
 
     const gchar *layout = seat_get_string_property (SEAT (seat), "xserver-layout");
     if (layout)
@@ -255,24 +263,6 @@ seat_local_set_active_session (Seat *seat, Session *session)
 static Session *
 seat_local_get_active_session (Seat *seat)
 {
-    /*
-     * In the past, virtual terminal switching was the only way to switch
-     * between multiple sessions associated with a seat.  Due to operating
-     * system limitations, virtual terminal switching is limited to seat0, so
-     * the vt_* family of functions from vt.h must only be used with seat0.
-     *
-     * Nowadays, systemd-logind (via the org.freedesktop.login1 dbus interface)
-     * can be used to switch sessions.  logind supports multiple sessions even
-     * on non-seat0 seats.  Whenever logind switches sessions, a callback
-     * updates priv->active_session, so seat_get_expected_active_session should
-     * always return the currently active session.
-     *
-     * FIXME: Use seat_get_expected_active_session even for seat0, falling back
-     * to VT probing if the systemd-logind service is unavailable.
-     */
-    if (strcmp (seat_get_name (seat), "seat0") != 0 || !seat_get_can_tty (seat))
-        return seat_get_expected_active_session (seat);
-
     gint vt = vt_get_active ();
     if (vt < 0)
         return NULL;
@@ -319,7 +309,6 @@ seat_local_stop (Seat *seat)
 static void
 seat_local_init (SeatLocal *seat)
 {
-    seat_set_supports_multi_session (SEAT (seat), TRUE);
 }
 
 static void
@@ -343,6 +332,7 @@ seat_local_class_init (SeatLocalClass *klass)
 
     object_class->finalize = seat_local_finalize;
 
+    seat_class->setup = seat_local_setup;
     seat_class->start = seat_local_start;
     seat_class->create_display_server = seat_local_create_display_server;
     seat_class->display_server_is_used = seat_local_display_server_is_used;
