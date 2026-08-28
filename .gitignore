@@ -1,16 +1,80 @@
+# Autotools / Libtool generated files
+*.la
+*.lo
+*.o
+*.pc
+/Makefile
 /Makefile.in
 /aclocal.m4
+/config.h
 /config.h.in
+/config.log
+/config.status
 /configure
-/autom4te.cache/
 /configure~
+/libtool
+/stamp-h1
+/autom4te.cache/
 
-/common/Makefile.in
-/data/Makefile.in
-/doc/Makefile.in
-/help/Makefile.in
-/liblightdm-gobject/Makefile.in
-/liblightdm-qt/Makefile.in
-/src/Makefile.in
-/tests/Makefile.in
+# Generated Makefiles and dependency/build directories
+/*/Makefile
+/*/Makefile.in
+/*/.deps/
+/*/.libs/
+/tests/src/Makefile
 /tests/src/Makefile.in
+/tests/src/.deps/
+/tests/src/.libs/
+
+# Generated translations / intltool
+/po/*.gmo
+/po/lightdm.pot
+/po/Makefile.in
+/po/POTFILES
+/po/stamp-it
+/po/.intltool-merge-cache
+/po/.intltool-merge-cache.lock
+
+# Generated introspection / Vala
+/liblightdm-gobject/*.gir
+/liblightdm-gobject/*.typelib
+/liblightdm-gobject/*.vapi
+
+# Generated Qt MOC sources
+/liblightdm-qt/*_moc5.cpp
+/liblightdm-qt/*_moc6.cpp
+/tests/src/*_moc5.cpp
+/tests/src/*_moc6.cpp
+
+# Generated data
+/data/lightdm-guest-session
+/data/org.freedesktop.DisplayManager.AccountsService.policy
+
+# Built programs and test helpers
+/src/lightdm
+/src/dm-tool
+/src/lightdm-guest-session
+/tests/src/X
+/tests/src/Xvnc
+/tests/src/dbus-env
+/tests/src/guest-account
+/tests/src/initctl
+/tests/src/plymouth
+/tests/src/test-gobject-greeter
+/tests/src/test-greeter-wrapper
+/tests/src/test-guest-wrapper
+/tests/src/test-qt5-greeter
+/tests/src/test-qt6-greeter
+/tests/src/test-runner
+/tests/src/test-script-hook
+/tests/src/test-session
+/tests/src/vnc-client
+
+# Generated test configuration
+/tests/scripts/*-pam.conf
+/tests/scripts/login-pam-config.conf
+
+# Test suite results
+/tests/*.log
+/tests/*.trs
+/tests/test-suite.log
