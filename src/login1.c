@@ -202,10 +202,8 @@ add_seat (Login1Service *service, const gchar *id, const gchar *path)
         {
             if (strcmp (name, "CanGraphical") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_BOOLEAN))
                 s_priv->can_graphical = g_variant_get_boolean (value);
-
             else if (strcmp (name, "CanTTY") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_BOOLEAN))
                 s_priv->can_tty = g_variant_get_boolean (value);
-
             else if (strcmp (name, "CanMultiSession") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_BOOLEAN))
                 s_priv->can_multi_session = g_variant_get_boolean (value);
         }
@@ -553,7 +551,9 @@ login1_seat_get_can_tty (Login1Seat *seat)
     Login1SeatPrivate *priv = login1_seat_get_instance_private (seat);
     g_return_val_if_fail (seat != NULL, FALSE);
     return priv->can_tty;
+}
 
+gboolean
 login1_seat_get_can_multi_session (Login1Seat *seat)
 {
     Login1SeatPrivate *priv = login1_seat_get_instance_private (seat);

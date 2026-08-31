@@ -936,6 +936,9 @@ main (int argc, char **argv)
                 set_seat_properties (seat, NULL);
                 seat_set_property (seat, "exit-on-failure", "true");
 
+                /* in the absence of login1 we find out this using our own heuristics */
+                seat_set_can_tty (seat, vt_can_multi_seat ());
+
                 if (!display_manager_add_seat (display_manager, seat))
                     return EXIT_FAILURE;
             }
