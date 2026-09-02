@@ -1,19 +1,22 @@
-initdir = ${sysconfdir}/init
-dist_init_DATA = init/lightdm.conf
-
 confdir = $(sysconfdir)/lightdm
 dist_conf_DATA = lightdm.conf users.conf keys.conf
+
+systemdsystemunitdir = $(prefix)/lib/systemd/system
+dist_systemdsystemunit_DATA = \
+    systemd/system/lightdm.service
 
 dbusconfdir = $(datadir)/dbus-1/system.d
 dist_dbusconf_DATA = org.freedesktop.DisplayManager.conf
 
 pamdir = $(sysconfdir)/pam.d
 dist_pam_DATA = pam/lightdm \
-                pam/lightdm-autologin \
-                pam/lightdm-greeter
+    pam/lightdm-autologin \
+    pam/lightdm-greeter
 
 completionsdir = $(datadir)/bash-completion/completions
-dist_completions_DATA = bash-completion/dm-tool bash-completion/lightdm
+dist_completions_DATA = \
+    bash-completion/dm-tool \
+    bash-completion/lightdm
 
 lightdm-guest-session: $(srcdir)/apparmor/lightdm-guest-session.in
 	sed -e 's|@libexecdir[@]|$(libexecdir)|g' $< >$@
@@ -44,7 +47,7 @@ polkit_DATA = $(polkit_in_files:.policy.in=.policy)
 @INTLTOOL_POLICY_RULE@
 
 dist_man1_MANS = dm-tool.1 \
-                 lightdm.1
+    lightdm.1
 
 EXTRA_DIST = apparmor/lightdm-guest-session.in $(polkit_in_files)
 CLEANFILES = lightdm-guest-session $(polkit_DATA)

@@ -1,0 +1,25 @@
+[Unit]
+Description=Light Display Manager
+Documentation=man:lightdm(1)
+
+# replaces plymouth-quit since lightdm quits plymouth on its own
+Conflicts=getty@tty7.service plymouth-quit.service
+After=systemd-user-sessions.service getty@tty7.service plymouth-quit.service
+
+# lightdm takes responsibility for stopping plymouth, so if it fails
+# for any reason, make sure plymouth still stops
+OnFailure=plymouth-quit.service
+StartLimitIntervalSec=30s
+StartLimitBurst=2
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.DisplayManager
+ExecStart=/usr/sbin/lightdm
+Restart=always
+RestartSec=5s
+EnvironmentFile=-/etc/default/locale
+IgnoreSIGPIPE=no
+
+[Install]
+Alias=display-manager.service
